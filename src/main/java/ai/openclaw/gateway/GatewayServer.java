@@ -2,6 +2,7 @@ package ai.openclaw.gateway;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ai.openclaw.config.Json;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -16,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class GatewayServer extends WebSocketServer {
     private static final Logger logger = LoggerFactory.getLogger(GatewayServer.class);
     private final OpenClawConfig config;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = Json.mapper();
     private final Map<String, WebSocket> clients = new ConcurrentHashMap<>();
     private final RpcRouter router;
 
@@ -46,6 +47,10 @@ public class GatewayServer extends WebSocketServer {
                 // It's a request
                 try {
                     JsonNode result = router.route(request.getMethod(), request.getParams());
+                    if (result == null) {
+                        sendError(conn, request.getId(), -32601, "Method not found: " + request.getMethod());
+                        return;
+                    }
                     RpcProtocol.RpcMessage response = new RpcProtocol.RpcMessage();
                     response.setId(request.getId());
                     response.setResult(result);

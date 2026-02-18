@@ -4,6 +4,7 @@ import ai.openclaw.agent.AgentExecutor;
 import ai.openclaw.agent.AnthropicProvider;
 import ai.openclaw.channel.console.ConsoleChannel;
 import ai.openclaw.config.ConfigLoader;
+import ai.openclaw.config.Json;
 import ai.openclaw.config.OpenClawConfig;
 import ai.openclaw.gateway.GatewayServer;
 import ai.openclaw.gateway.RpcRouter;
@@ -31,14 +32,14 @@ public class GatewayCommand implements Runnable {
             RpcRouter router = new RpcRouter();
             router.register("gateway.health", params -> {
                 // simple health check
-                return new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode().put("status", "ok");
+                return Json.mapper().createObjectNode().put("status", "ok");
             });
             router.register("agent.send", params -> {
                 // handle remote send
                 String sessionId = params.get("sessionId").asText();
                 String message = params.get("message").asText();
                 String response = agentExecutor.execute(sessionId, message);
-                return new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode().put("response", response);
+                return Json.mapper().createObjectNode().put("response", response);
             });
 
             // 4. Start Gateway Server
