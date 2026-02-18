@@ -71,7 +71,7 @@ public class CodeExecutionTool implements Tool {
             Process process = pb.start();
 
             // Read output in a separate thread so we don't block on the stream
-            StringBuilder output = new StringBuilder();
+            StringBuffer output = new StringBuffer();
             Thread readerThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                     String line;
@@ -96,7 +96,7 @@ public class CodeExecutionTool implements Tool {
                         true, -1);
             }
 
-            readerThread.join(2000); // Wait for reader to finish
+            readerThread.join(); // Wait for reader to finish (process has exited, stream will close)
 
             int exitCode = process.exitValue();
             String result = output.toString().trim();
