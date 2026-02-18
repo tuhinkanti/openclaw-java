@@ -11,25 +11,68 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * Tool that runs shell commands via ProcessBuilder.
  * Commands run as the current OS user with a configurable timeout.
+ * Includes a safety layer that blocks dangerous commands and warns on risky
+ * ones.
  */
 public class CodeExecutionTool implements Tool {
     private static final Logger logger = LoggerFactory.getLogger(CodeExecutionTool.class);
     private static final int MAX_OUTPUT_CHARS = 8192;
+
+    /**
+     * Commands that are always blocked — too dangerous even with user confirmation.
+     */
+    private static final List<Pattern> DEFAULT_BLOCKED_PATTERNS = List.of(
+            Pattern.compile("\\brm\\s+(-[^\\s]*)?-r[^\\s]*\\s+[/~]", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("\\bmkfs\\b"),
+            Pattern.compile("\\bdd\\s+.*of\\s*=\\s*/dev/"),
+            Pattern.compile("\\bchmod\\s+777\\s+/"),
+            Pattern.compile("\\bchown\\s+.*\\s+/"),
+            Pattern.compile(">\\s*/etc/"),
+            Pattern.compile("\\bcurl\\s+.*\\|\\s*sh"),
+            Pattern.compile("\\bwget\\s+.*\\|\\s*sh"),
+            Pattern.compile("\\b(shutdown|reboot|halt|poweroff)\\b"),
+            Pattern.compile("\\bkill\\s+-9\\s+1\\b"),
+            Pattern.compile("\\brm\\s+(-[^\\s]*)?-r[^\\s]*\\s+\\*"));
+
+    /** Commands that are allowed but logged at WARN level. */
+    private static final List<Pattern> DEFAULT_WARNED_PATTERNS = List.of(
+            Pattern.compile("\\brm\\b"),
+            Pattern.compile("\\bmv\\b"),
+            Pattern.compile("\\bchmod\\b"),
+            Pattern.compile("\\bchown\\b"),
+            Pattern.compile("\\bcurl\\b"),
+            Pattern.compile("\\bwget\\b"),
+            Pattern.compile("\\bsudo\\b"),
+            Pattern.compile("\\bpip\\s+install"),
+            Pattern.compile("\\bnpm\\s+install"),
+            Pattern.compile("\\bapt(-get)?\\s+install"));
+
     private final long timeoutSeconds;
     private final Path workingDirectory;
+    private final List<Pattern> blockedPatterns;
+    private final List<Pattern> warnedPatterns;
 
     public CodeExecutionTool() {
         this(30, Paths.get(System.getProperty("user.home"), "workspace"));
     }
 
     public CodeExecutionTool(long timeoutSeconds, Path workingDirectory) {
+        this(timeoutSeconds, workingDirectory, DEFAULT_BLOCKED_PATTERNS, DEFAULT_WARNED_PATTERNS);
+    }
+
+    public CodeExecutionTool(long timeoutSeconds, Path workingDirectory,
+            List<Pattern> blockedPatterns, List<Pattern> warnedPatterns) {
         this.timeoutSeconds = timeoutSeconds;
         this.workingDirectory = workingDirectory;
+        this.blockedPatterns = blockedPatterns;
+        this.warnedPatterns = warnedPatterns;
     }
 
     @Override
@@ -41,7 +84,8 @@ public class CodeExecutionTool implements Tool {
     public String description() {
         return "Runs a shell command on the user's machine and returns the output. " +
                 "Use this to execute code, run scripts, list files, or perform any command-line task. " +
-                "Always confirm with the user before running destructive commands (rm, mv, etc.).";
+                "Dangerous commands (rm -rf /, mkfs, dd to devices, etc.) are blocked. " +
+                "Risky commands (rm, mv, chmod, curl, etc.) are allowed but logged.";
     }
 
     @Override
@@ -62,6 +106,17 @@ public class CodeExecutionTool implements Tool {
     public ToolResult execute(JsonNode input) {
         String command = input.get("command").asText();
         logger.info("Executing command: {}", command);
+
+        // Safety check: block dangerous commands
+        String blockReason = checkBlocked(command);
+        if (blockReason != null) {
+            logger.error("BLOCKED dangerous command: {} (reason: {})", command, blockReason);
+            return ToolResult.error("Command blocked for safety: " + blockReason +
+                    ". This command pattern is not allowed.");
+        }
+
+        // Safety check: warn on risky commands
+        checkWarned(command);
 
         try {
             ProcessBuilder pb = new ProcessBuilder("/bin/sh", "-c", command);
@@ -110,6 +165,31 @@ public class CodeExecutionTool implements Tool {
         } catch (Exception e) {
             logger.error("Failed to execute command: {}", command, e);
             return ToolResult.error("Failed to execute command: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Check if a command matches any blocked pattern.
+     * Returns the reason string if blocked, null if allowed.
+     */
+    String checkBlocked(String command) {
+        for (Pattern pattern : blockedPatterns) {
+            if (pattern.matcher(command).find()) {
+                return "matches blocked pattern: " + pattern.pattern();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Log a warning if the command matches any risky pattern.
+     */
+    private void checkWarned(String command) {
+        for (Pattern pattern : warnedPatterns) {
+            if (pattern.matcher(command).find()) {
+                logger.warn("Risky command detected ({}): {}", pattern.pattern(), command);
+                return; // Only warn once per command
+            }
         }
     }
 }
