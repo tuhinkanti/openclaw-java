@@ -12,7 +12,11 @@ import java.nio.file.Paths;
 public class SystemPromptBuilder {
     private static final Logger logger = LoggerFactory.getLogger(SystemPromptBuilder.class);
     private final OpenClawConfig config;
-    private static final String DEFAULT_PROMPT = "You are OpenClaw, a helpful AI assistant. You answer concisely and accurately.";
+    private static final String DEFAULT_PROMPT = "You are OpenClaw, a helpful AI assistant. " +
+            "You answer concisely and accurately. " +
+            "You have a code_execution tool that can run shell commands on the user's machine. " +
+            "Use it when the user asks you to run code, scripts, check files, or perform any command-line task. " +
+            "Always confirm with the user before running destructive commands (rm, mv to overwrite, etc.).";
 
     public SystemPromptBuilder(OpenClawConfig config) {
         this.config = config;

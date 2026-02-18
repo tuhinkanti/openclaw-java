@@ -26,11 +26,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class GatewayE2ETest {
     private GatewayServer server;
-    private int port = 18790;
+    private int port;
     private SessionStore sessionStore;
+
+    private static int findFreePort() throws Exception {
+        try (var socket = new java.net.ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
+    }
 
     @BeforeEach
     void setUp() throws Exception {
+        port = findFreePort();
+
         OpenClawConfig config = new OpenClawConfig();
         OpenClawConfig.GatewayConfig gatewayConfig = new OpenClawConfig.GatewayConfig();
         gatewayConfig.setPort(port);
