@@ -9,8 +9,11 @@ import ai.openclaw.config.OpenClawConfig;
 import ai.openclaw.gateway.GatewayServer;
 import ai.openclaw.gateway.RpcRouter;
 import ai.openclaw.session.SessionStore;
+import ai.openclaw.tool.CodeExecutionTool;
+import ai.openclaw.tool.Tool;
 import picocli.CommandLine.Command;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 @Command(name = "gateway", description = "Starts the Gateway WebSocket server")
@@ -26,7 +29,11 @@ public class GatewayCommand implements Runnable {
             // 2. Initialize Components
             SessionStore sessionStore = new SessionStore();
             AnthropicProvider llmProvider = new AnthropicProvider(config.getAgent().getApiKey());
-            AgentExecutor agentExecutor = new AgentExecutor(config, sessionStore, llmProvider);
+
+            // Register tools
+            List<Tool> tools = List.of(new CodeExecutionTool());
+
+            AgentExecutor agentExecutor = new AgentExecutor(config, sessionStore, llmProvider, tools);
 
             // 3. Setup RPC Router
             RpcRouter router = new RpcRouter();
