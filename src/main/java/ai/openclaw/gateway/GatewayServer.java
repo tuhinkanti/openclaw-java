@@ -48,6 +48,10 @@ public class GatewayServer extends WebSocketServer {
                 // It's a request
                 try {
                     JsonNode result = router.route(request.getMethod(), request.getParams());
+                    if (result == null) {
+                        sendError(conn, request.getId(), -32601, "Method not found: " + request.getMethod());
+                        return;
+                    }
                     RpcProtocol.RpcMessage response = new RpcProtocol.RpcMessage();
                     response.setId(request.getId());
                     response.setResult(result);
