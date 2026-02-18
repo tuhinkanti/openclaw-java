@@ -29,8 +29,57 @@ public class GatewayServer extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        logger.info("New connection from {}", conn.getRemoteSocketAddress());
-        // Simple auth check could be added here
+        String remoteAddress = conn.getRemoteSocketAddress().toString();
+        logger.info("New connection from {}", remoteAddress);
+
+        String expectedToken = config.getGateway().getAuthToken();
+        if (expectedToken == null || expectedToken.isEmpty()) {
+            logger.warn("No auth token configured! Accepting connection from {}", remoteAddress);
+            return;
+        }
+
+        String providedToken = extractToken(handshake);
+        if (providedToken == null || !constantTimeEquals(expectedToken, providedToken)) {
+            logger.warn("Unauthorized connection attempt from {}", remoteAddress);
+            // Close with policy violation code (1008) or normal code (1000) with reason
+            conn.close(1008, "Unauthorized");
+            return;
+        }
+
+        logger.info("Authenticated connection from {}", remoteAddress);
+    }
+
+    private String extractToken(ClientHandshake handshake) {
+        // 1. Check Authorization header
+        String authHeader = handshake.getFieldValue("Authorization");
+        if (authHeader != null && authHeader.toLowerCase().startsWith("bearer ")) {
+            return authHeader.substring(7).trim();
+        }
+
+        // 2. Check query parameter
+        String descriptor = handshake.getResourceDescriptor();
+        if (descriptor.contains("token=")) {
+            int index = descriptor.indexOf("token=");
+            String token = descriptor.substring(index + 6);
+            int end = token.indexOf('&');
+            if (end != -1) {
+                token = token.substring(0, end);
+            }
+            return token;
+        }
+        return null;
+    }
+
+    /** Constant-time string comparison to prevent timing attacks. */
+    private boolean constantTimeEquals(String a, String b) {
+        if (a.length() != b.length()) {
+            return false;
+        }
+        int result = 0;
+        for (int i = 0; i < a.length(); i++) {
+            result |= a.charAt(i) ^ b.charAt(i);
+        }
+        return result == 0;
     }
 
     @Override
