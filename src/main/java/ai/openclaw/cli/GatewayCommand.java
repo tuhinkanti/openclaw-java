@@ -10,7 +10,10 @@ import ai.openclaw.gateway.GatewayServer;
 import ai.openclaw.gateway.RpcRouter;
 import ai.openclaw.session.SessionStore;
 import ai.openclaw.tool.CodeExecutionTool;
+import ai.openclaw.tool.FileReadTool;
+import ai.openclaw.tool.FileWriteTool;
 import ai.openclaw.tool.Tool;
+import ai.openclaw.tool.WebSearchTool;
 import picocli.CommandLine.Command;
 
 import java.util.List;
@@ -31,7 +34,11 @@ public class GatewayCommand implements Runnable {
             AnthropicProvider llmProvider = new AnthropicProvider(config.getAgent().getApiKey());
 
             // Register tools
-            List<Tool> tools = List.of(new CodeExecutionTool());
+            List<Tool> tools = List.of(
+                    new CodeExecutionTool(),
+                    new FileReadTool(),
+                    new FileWriteTool(),
+                    new WebSearchTool());
 
             AgentExecutor agentExecutor = new AgentExecutor(config, sessionStore, llmProvider, tools);
 
