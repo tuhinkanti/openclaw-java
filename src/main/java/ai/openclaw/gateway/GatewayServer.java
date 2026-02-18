@@ -2,6 +2,7 @@ package ai.openclaw.gateway;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ai.openclaw.config.Json;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -13,12 +14,10 @@ import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
 public class GatewayServer extends WebSocketServer {
     private static final Logger logger = LoggerFactory.getLogger(GatewayServer.class);
     private final OpenClawConfig config;
-    private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    private final ObjectMapper mapper = Json.mapper();
     private final Map<String, WebSocket> clients = new ConcurrentHashMap<>();
     private final RpcRouter router;
 

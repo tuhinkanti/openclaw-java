@@ -1,7 +1,7 @@
 package ai.openclaw.agent;
 
 import ai.openclaw.session.Message;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import ai.openclaw.config.Json;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -24,7 +24,7 @@ public class AnthropicProvider implements LlmProvider {
                 .connectTimeout(60, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
                 .build();
-        this.mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        this.mapper = Json.mapper();
     }
 
     @Override

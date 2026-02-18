@@ -1,29 +1,23 @@
 package ai.openclaw.session;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import ai.openclaw.session.Session;
-import ai.openclaw.session.Message;
+import ai.openclaw.config.Json;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 public class SessionStore {
     private static final Logger logger = LoggerFactory.getLogger(SessionStore.class);
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
-    private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    private final ObjectMapper mapper = Json.mapper();
     private final Path sessionsDir;
 
     public SessionStore() {
