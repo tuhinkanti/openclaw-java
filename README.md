@@ -46,3 +46,26 @@ This project implements a minimal viable version of OpenClaw in Java, focusing o
 - `src/main/java/ai/openclaw/channel` - Console channel implementation
 - `src/main/java/ai/openclaw/config` - Configuration loader
 - `src/main/java/ai/openclaw/session` - Session storage
+
+## Running with Docker
+
+You can run the application in a Docker container for an isolated environment.
+
+1. **Build the Docker image**:
+   ```bash
+   docker build -t openclaw-java .
+   ```
+
+2. **Run the container**:
+   You must provide your Anthropic API key as an environment variable.
+   ```bash
+   docker run -it --rm \
+     -e ANTHROPIC_API_KEY=sk-ant-... \
+     -p 18789:18789 \
+     openclaw-java
+   ```
+
+   The container runs as a non-root user (`openclaw`) for security.
+   - Code execution is confined to `/home/openclaw/workspace`.
+   - File access is restricted to the workspace directory.
+   - Network access to internal/private IPs is blocked.
