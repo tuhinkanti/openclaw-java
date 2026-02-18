@@ -24,7 +24,7 @@ public class CodeExecutionTool implements Tool {
     private final Path workingDirectory;
 
     public CodeExecutionTool() {
-        this(30, Paths.get(System.getProperty("user.home")));
+        this(30, Paths.get(System.getProperty("user.home"), "workspace"));
     }
 
     public CodeExecutionTool(long timeoutSeconds, Path workingDirectory) {

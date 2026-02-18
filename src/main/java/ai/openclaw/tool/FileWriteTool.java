@@ -13,9 +13,19 @@ import java.nio.file.Paths;
 
 /**
  * Tool that writes content to a file.
+ * Confined to a workspace directory for security.
  */
 public class FileWriteTool implements Tool {
     private static final Logger logger = LoggerFactory.getLogger(FileWriteTool.class);
+    private final Path workspaceRoot;
+
+    public FileWriteTool() {
+        this(Paths.get(System.getProperty("user.home"), "workspace"));
+    }
+
+    public FileWriteTool(Path workspaceRoot) {
+        this.workspaceRoot = workspaceRoot.toAbsolutePath().normalize();
+    }
 
     @Override
     public String name() {
@@ -26,7 +36,7 @@ public class FileWriteTool implements Tool {
     public String description() {
         return "Writes content to a file at the given path. Creates the file and parent directories if they don't exist. "
                 +
-                "Overwrites existing content. Use this to create or update files.";
+                "Overwrites existing content. Paths are relative to the workspace directory (" + workspaceRoot + ").";
     }
 
     @Override
@@ -38,7 +48,7 @@ public class FileWriteTool implements Tool {
 
         ObjectNode path = properties.putObject("path");
         path.put("type", "string");
-        path.put("description", "Absolute path to the file to write");
+        path.put("description", "Path to the file to write (relative to workspace, or absolute within workspace)");
 
         ObjectNode content = properties.putObject("content");
         content.put("type", "string");
@@ -55,7 +65,10 @@ public class FileWriteTool implements Tool {
         logger.info("Writing file: {} ({} chars)", filePath, content.length());
 
         try {
-            Path path = Paths.get(filePath);
+            Path path = resolvePath(filePath);
+            if (path == null) {
+                return ToolResult.error("Access denied: path is outside the workspace (" + workspaceRoot + ")");
+            }
 
             // Create parent directories if needed
             if (path.getParent() != null) {
@@ -63,11 +76,28 @@ public class FileWriteTool implements Tool {
             }
 
             Files.writeString(path, content);
-            return ToolResult.success("Successfully wrote " + content.length() + " chars to " + filePath);
+            return ToolResult.success("Successfully wrote " + content.length() + " chars to " + path);
 
         } catch (IOException e) {
             logger.error("Failed to write file: {}", filePath, e);
             return ToolResult.error("Failed to write file: " + e.getMessage());
         }
+    }
+
+    /**
+     * Resolves a path ensuring it stays within the workspace root.
+     * Returns null if the resolved path escapes the workspace.
+     */
+    private Path resolvePath(String filePath) {
+        Path resolved = Paths.get(filePath);
+        if (!resolved.isAbsolute()) {
+            resolved = workspaceRoot.resolve(filePath);
+        }
+        resolved = resolved.toAbsolutePath().normalize();
+        if (!resolved.startsWith(workspaceRoot)) {
+            logger.warn("Path escape attempt: {} resolved to {} (workspace: {})", filePath, resolved, workspaceRoot);
+            return null;
+        }
+        return resolved;
     }
 }

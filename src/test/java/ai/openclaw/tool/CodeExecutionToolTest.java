@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class CodeExecutionToolTest {
 
-    private final CodeExecutionTool tool = new CodeExecutionTool();
+    private final CodeExecutionTool tool = new CodeExecutionTool(30, Paths.get(System.getProperty("java.io.tmpdir")));
 
     @Test
     void testEchoCommand() {

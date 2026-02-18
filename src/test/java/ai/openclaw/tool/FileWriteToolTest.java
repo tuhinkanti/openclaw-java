@@ -13,39 +13,41 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class FileWriteToolTest {
 
-    private final FileWriteTool tool = new FileWriteTool();
+    @TempDir
+    Path tempDir;
+
+    private FileWriteTool tool() {
+        return new FileWriteTool(tempDir);
+    }
 
     @Test
-    void testWriteNewFile(@TempDir Path tempDir) throws IOException {
-        Path testFile = tempDir.resolve("output.txt");
-
+    void testWriteNewFile() throws IOException {
         ObjectNode input = Json.mapper().createObjectNode();
-        input.put("path", testFile.toString());
+        input.put("path", "output.txt");
         input.put("content", "Hello from test!");
 
-        ToolResult result = tool.execute(input);
+        ToolResult result = tool().execute(input);
 
         assertFalse(result.isError());
-        assertEquals("Hello from test!", Files.readString(testFile));
+        assertEquals("Hello from test!", Files.readString(tempDir.resolve("output.txt")));
     }
 
     @Test
-    void testWriteCreatesDirectories(@TempDir Path tempDir) throws IOException {
-        Path testFile = tempDir.resolve("sub/dir/output.txt");
-
+    void testWriteCreatesDirectories() throws IOException {
         ObjectNode input = Json.mapper().createObjectNode();
-        input.put("path", testFile.toString());
+        input.put("path", "sub/dir/output.txt");
         input.put("content", "Nested!");
 
-        ToolResult result = tool.execute(input);
+        ToolResult result = tool().execute(input);
 
         assertFalse(result.isError());
-        assertTrue(Files.exists(testFile));
-        assertEquals("Nested!", Files.readString(testFile));
+        Path created = tempDir.resolve("sub/dir/output.txt");
+        assertTrue(Files.exists(created));
+        assertEquals("Nested!", Files.readString(created));
     }
 
     @Test
-    void testOverwriteExistingFile(@TempDir Path tempDir) throws IOException {
+    void testOverwriteExistingFile() throws IOException {
         Path testFile = tempDir.resolve("existing.txt");
         Files.writeString(testFile, "old content");
 
@@ -53,14 +55,39 @@ public class FileWriteToolTest {
         input.put("path", testFile.toString());
         input.put("content", "new content");
 
-        ToolResult result = tool.execute(input);
+        ToolResult result = tool().execute(input);
 
         assertFalse(result.isError());
         assertEquals("new content", Files.readString(testFile));
     }
 
     @Test
+    void testPathEscapeBlocked() {
+        ObjectNode input = Json.mapper().createObjectNode();
+        input.put("path", "../../../tmp/evil.txt");
+        input.put("content", "pwned");
+
+        ToolResult result = tool().execute(input);
+
+        assertTrue(result.isError());
+        assertTrue(result.getOutput().contains("Access denied"));
+    }
+
+    @Test
+    void testAbsolutePathOutsideWorkspaceBlocked() {
+        ObjectNode input = Json.mapper().createObjectNode();
+        input.put("path", "/tmp/evil.txt");
+        input.put("content", "pwned");
+
+        ToolResult result = tool().execute(input);
+
+        assertTrue(result.isError());
+        assertTrue(result.getOutput().contains("Access denied"));
+    }
+
+    @Test
     void testToolMetadata() {
+        FileWriteTool tool = tool();
         assertEquals("file_write", tool.name());
         assertNotNull(tool.description());
         assertNotNull(tool.inputSchema());

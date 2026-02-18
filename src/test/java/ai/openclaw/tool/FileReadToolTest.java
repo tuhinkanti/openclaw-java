@@ -13,42 +13,61 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class FileReadToolTest {
 
-    private final FileReadTool tool = new FileReadTool();
+    @TempDir
+    Path tempDir;
+
+    private FileReadTool tool() {
+        return new FileReadTool(tempDir);
+    }
 
     @Test
-    void testReadExistingFile(@TempDir Path tempDir) throws IOException {
+    void testReadExistingFile() throws IOException {
         Path testFile = tempDir.resolve("test.txt");
         Files.writeString(testFile, "Hello, World!");
 
         ObjectNode input = Json.mapper().createObjectNode();
         input.put("path", testFile.toString());
 
-        ToolResult result = tool.execute(input);
+        ToolResult result = tool().execute(input);
 
         assertFalse(result.isError());
         assertEquals("Hello, World!", result.getOutput());
     }
 
     @Test
+    void testReadRelativePath() throws IOException {
+        Path testFile = tempDir.resolve("relative.txt");
+        Files.writeString(testFile, "Relative content");
+
+        ObjectNode input = Json.mapper().createObjectNode();
+        input.put("path", "relative.txt");
+
+        ToolResult result = tool().execute(input);
+
+        assertFalse(result.isError());
+        assertEquals("Relative content", result.getOutput());
+    }
+
+    @Test
     void testReadMissingFile() {
         ObjectNode input = Json.mapper().createObjectNode();
-        input.put("path", "/nonexistent/file.txt");
+        input.put("path", "nonexistent.txt");
 
-        ToolResult result = tool.execute(input);
+        ToolResult result = tool().execute(input);
 
         assertTrue(result.isError());
         assertTrue(result.getOutput().contains("File not found"));
     }
 
     @Test
-    void testReadDirectory(@TempDir Path tempDir) throws IOException {
+    void testReadDirectory() throws IOException {
         Files.createFile(tempDir.resolve("a.txt"));
         Files.createFile(tempDir.resolve("b.txt"));
 
         ObjectNode input = Json.mapper().createObjectNode();
         input.put("path", tempDir.toString());
 
-        ToolResult result = tool.execute(input);
+        ToolResult result = tool().execute(input);
 
         assertFalse(result.isError());
         assertTrue(result.getOutput().contains("a.txt"));
@@ -56,7 +75,30 @@ public class FileReadToolTest {
     }
 
     @Test
+    void testPathEscapeBlocked() {
+        ObjectNode input = Json.mapper().createObjectNode();
+        input.put("path", "../../../etc/passwd");
+
+        ToolResult result = tool().execute(input);
+
+        assertTrue(result.isError());
+        assertTrue(result.getOutput().contains("Access denied"));
+    }
+
+    @Test
+    void testAbsolutePathOutsideWorkspaceBlocked() {
+        ObjectNode input = Json.mapper().createObjectNode();
+        input.put("path", "/etc/passwd");
+
+        ToolResult result = tool().execute(input);
+
+        assertTrue(result.isError());
+        assertTrue(result.getOutput().contains("Access denied"));
+    }
+
+    @Test
     void testToolMetadata() {
+        FileReadTool tool = tool();
         assertEquals("file_read", tool.name());
         assertNotNull(tool.description());
         assertNotNull(tool.inputSchema());
