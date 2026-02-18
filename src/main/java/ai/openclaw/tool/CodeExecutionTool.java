@@ -160,6 +160,7 @@ public class CodeExecutionTool implements Tool {
             readerThread.setDaemon(true);
             readerThread.start();
 
+            long startNanos = System.nanoTime();
             boolean completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!completed) {
                 process.destroyForcibly();
@@ -169,7 +170,17 @@ public class CodeExecutionTool implements Tool {
                         true, -1);
             }
 
-            readerThread.join(); // Wait for reader to finish (process has exited, stream will close)
+            // Wait for reader to finish, bounded by remaining timeout budget.
+            // If the command spawned background children that inherited stdout,
+            // the stream won't reach EOF until they exit — we must not block forever.
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+            long remainingMs = Math.max(0, TimeUnit.SECONDS.toMillis(timeoutSeconds) - elapsedMs);
+            readerThread.join(remainingMs + 2000); // +2s grace for stream flush
+            if (readerThread.isAlive()) {
+                readerThread.interrupt();
+                logger.warn(
+                        "Reader thread still alive after timeout budget — background child may have inherited stdout");
+            }
 
             int exitCode = process.exitValue();
             String result = output.toString().trim();
