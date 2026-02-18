@@ -42,4 +42,45 @@ public class WebSearchToolTest {
         assertNotNull(tool.description());
         assertNotNull(tool.inputSchema());
     }
+
+    // --- SSRF protection tests ---
+
+    @Test
+    void testBlocksLoopback() {
+        assertNotNull(tool.validateUrl("http://127.0.0.1/secret"));
+        assertNotNull(tool.validateUrl("http://127.0.0.1:8080/admin"));
+    }
+
+    @Test
+    void testBlocksLocalhostByName() {
+        // localhost resolves to 127.0.0.1 — must be blocked
+        assertNotNull(tool.validateUrl("http://localhost/"));
+        assertNotNull(tool.validateUrl("http://localhost:8080/admin"));
+    }
+
+    @Test
+    void testBlocksCloudMetadata() {
+        // 169.254.169.254 is link-local — blocked by isLinkLocalAddress()
+        assertNotNull(tool.validateUrl("http://169.254.169.254/latest/meta-data/"));
+    }
+
+    @Test
+    void testBlocksPrivateRanges() {
+        assertNotNull(tool.validateUrl("http://192.168.1.1/"));
+        assertNotNull(tool.validateUrl("http://10.0.0.1/"));
+        assertNotNull(tool.validateUrl("http://172.16.0.1/"));
+    }
+
+    @Test
+    void testBlocksNonHttpScheme() {
+        assertNotNull(tool.validateUrl("ftp://example.com/file"));
+        assertNotNull(tool.validateUrl("file:///etc/passwd"));
+    }
+
+    @Test
+    void testAllowsPublicUrl() {
+        // Public internet addresses should pass validation
+        assertNull(tool.validateUrl("https://example.com/page"));
+        assertNull(tool.validateUrl("http://api.github.com/repos"));
+    }
 }
