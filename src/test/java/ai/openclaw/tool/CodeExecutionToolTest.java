@@ -124,4 +124,34 @@ public class CodeExecutionToolTest {
         // rm of a single file (no -r, no /) should NOT be blocked (only warned)
         assertNull(tool.checkBlocked("rm file.txt"));
     }
+
+    @Test
+    void testBlockedAbsolutePathRead() {
+        assertNotNull(tool.checkBlocked("cat /etc/passwd"));
+        assertNotNull(tool.checkBlocked("head /var/log/syslog"));
+        assertNotNull(tool.checkBlocked("tail /root/.ssh/id_rsa"));
+        assertNotNull(tool.checkBlocked("less /etc/shadow"));
+    }
+
+    @Test
+    void testWorkspacePathReadAllowed() {
+        // Reading within workspace should NOT be blocked
+        assertNull(tool.checkBlocked("cat /home/openclaw/workspace/file.txt"));
+        assertNull(tool.checkBlocked("head /home/user/workspace/log.txt"));
+    }
+
+    @Test
+    void testBlockedSSRF() {
+        assertNotNull(tool.checkBlocked("curl http://169.254.169.254/latest/meta-data/"));
+        assertNotNull(tool.checkBlocked("wget http://127.0.0.1:8080/admin"));
+        assertNotNull(tool.checkBlocked("curl http://localhost/secret"));
+        assertNotNull(tool.checkBlocked("curl http://192.168.1.1/"));
+        assertNotNull(tool.checkBlocked("curl http://10.0.0.1/"));
+    }
+
+    @Test
+    void testBlockedSymlinkCreation() {
+        assertNotNull(tool.checkBlocked("ln -s /etc /home/openclaw/workspace/etc"));
+        assertNotNull(tool.checkBlocked("ln -sf /root/.ssh workspace/ssh"));
+    }
 }

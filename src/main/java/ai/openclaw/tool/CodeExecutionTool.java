@@ -29,17 +29,35 @@ public class CodeExecutionTool implements Tool {
      * Commands that are always blocked — too dangerous even with user confirmation.
      */
     private static final List<Pattern> DEFAULT_BLOCKED_PATTERNS = List.of(
+            // Recursive delete on root or home
             Pattern.compile("\\brm\\s+-[^\\s]*r[^\\s]*\\s+[/~]", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("\\brm\\s+-[^\\s]*r[^\\s]*\\s+\\*"),
+            // Filesystem/device destruction
             Pattern.compile("\\bmkfs\\b"),
             Pattern.compile("\\bdd\\s+.*of\\s*=\\s*/dev/"),
+            // Permission/ownership on root paths
             Pattern.compile("\\bchmod\\s+777\\s+/"),
             Pattern.compile("\\bchown\\s+.*\\s+/"),
+            // Overwrite system config
             Pattern.compile(">\\s*/etc/"),
+            // Remote code execution
             Pattern.compile("\\bcurl\\s+.*\\|\\s*sh"),
             Pattern.compile("\\bwget\\s+.*\\|\\s*sh"),
+            // System control
             Pattern.compile("\\b(shutdown|reboot|halt|poweroff)\\b"),
             Pattern.compile("\\bkill\\s+-9\\s+1\\b"),
-            Pattern.compile("\\brm\\s+-[^\\s]*r[^\\s]*\\s+\\*"));
+            // Absolute path reads outside workspace (cat, head, tail, less, more, vi, nano)
+            Pattern.compile("\\b(cat|head|tail|less|more|vi|nano|vim)\\s+/(?!home/[^/]+/workspace)"),
+            // SSRF: cloud metadata endpoints and internal networks
+            Pattern.compile("\\b(curl|wget)\\s+[^|]*169\\.254\\."),
+            Pattern.compile("\\b(curl|wget)\\s+[^|]*127\\.0\\.0\\."),
+            Pattern.compile("\\b(curl|wget)\\s+[^|]*localhost"),
+            Pattern.compile("\\b(curl|wget)\\s+[^|]*\\[::1\\]"),
+            Pattern.compile("\\b(curl|wget)\\s+[^|]*10\\."),
+            Pattern.compile("\\b(curl|wget)\\s+[^|]*172\\.(1[6-9]|2[0-9]|3[01])\\."),
+            Pattern.compile("\\b(curl|wget)\\s+[^|]*192\\.168\\."),
+            // Symlink creation (can bypass workspace path checks)
+            Pattern.compile("\\bln\\s+-[^\\s]*s"));
 
     /** Commands that are allowed but logged at WARN level. */
     private static final List<Pattern> DEFAULT_WARNED_PATTERNS = List.of(
