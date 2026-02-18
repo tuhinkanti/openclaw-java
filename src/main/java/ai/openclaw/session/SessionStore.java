@@ -18,10 +18,12 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 public class SessionStore {
     private static final Logger logger = LoggerFactory.getLogger(SessionStore.class);
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private final Path sessionsDir;
 
     public SessionStore() {

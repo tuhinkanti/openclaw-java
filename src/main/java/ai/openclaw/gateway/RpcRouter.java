@@ -10,10 +10,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 public class RpcRouter {
     private static final Logger logger = LoggerFactory.getLogger(RpcRouter.class);
     private final Map<String, Function<JsonNode, JsonNode>> routes = new HashMap<>();
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     public void register(String method, Function<JsonNode, JsonNode> handler) {
         routes.put(method, handler);

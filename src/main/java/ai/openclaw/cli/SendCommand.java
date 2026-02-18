@@ -3,6 +3,7 @@ package ai.openclaw.cli;
 import ai.openclaw.config.ConfigLoader;
 import ai.openclaw.config.OpenClawConfig;
 import ai.openclaw.gateway.RpcProtocol;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.java_websocket.client.WebSocketClient;
@@ -15,7 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-@Command(name = "send", description = "Sends a message to the agent via WebSocket")
+@Command(name = "send", description = "Sends a message to the agent")
 public class SendCommand implements Runnable {
 
     @Option(names = { "-m", "--message" }, description = "Message text to send", required = true)
@@ -27,7 +28,7 @@ public class SendCommand implements Runnable {
             OpenClawConfig config = ConfigLoader.load();
             String uri = "ws://127.0.0.1:" + config.getGateway().getPort();
             CountDownLatch latch = new CountDownLatch(1);
-            ObjectMapper mapper = new ObjectMapper();
+            ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
             WebSocketClient client = new WebSocketClient(new URI(uri)) {
                 @Override

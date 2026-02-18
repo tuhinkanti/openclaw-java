@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.17.0")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.0")
     implementation("info.picocli:picocli:4.7.5")
     implementation("org.java-websocket:Java-WebSocket:1.5.7")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -35,4 +36,13 @@ tasks.test {
 
 application {
     mainClass.set("ai.openclaw.Main")
+}
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "ai.openclaw.Main"
+    }
+    // Create a fat JAR with all dependencies bundled
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
 }
