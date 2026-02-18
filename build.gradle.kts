@@ -1,7 +1,6 @@
 plugins {
     application
     id("java")
-    id("com.gradleup.shadow") version "9.0.0-beta12"
 }
 
 group = "ai.openclaw"
@@ -37,5 +36,14 @@ tasks.test {
 
 application {
     mainClass.set("ai.openclaw.Main")
+}
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "ai.openclaw.Main"
+    }
+    // Create a fat JAR with all dependencies bundled
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
 }
 
