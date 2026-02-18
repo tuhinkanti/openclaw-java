@@ -45,14 +45,25 @@ public class AnthropicProvider implements LlmProvider {
         ArrayNode messagesArray = requestBody.putArray("messages");
         String systemPrompt = null;
 
+        ArrayNode lastToolResultContentArray = null;
+
         for (Message msg : messages) {
             if ("system".equals(msg.getRole())) {
                 systemPrompt = msg.getContent();
+                lastToolResultContentArray = null;
             } else if ("tool_result".equals(msg.getRole())) {
-                // Tool results use structured content format
-                ObjectNode messageNode = messagesArray.addObject();
-                messageNode.put("role", "user");
-                ArrayNode contentArray = messageNode.putArray("content");
+                // Merge consecutive tool_results into a single user message
+                ArrayNode contentArray;
+                if (lastToolResultContentArray != null) {
+                    // Append to existing user message
+                    contentArray = lastToolResultContentArray;
+                } else {
+                    // Create a new user message
+                    ObjectNode messageNode = messagesArray.addObject();
+                    messageNode.put("role", "user");
+                    contentArray = messageNode.putArray("content");
+                    lastToolResultContentArray = contentArray;
+                }
                 ObjectNode toolResultBlock = contentArray.addObject();
                 toolResultBlock.put("type", "tool_result");
                 toolResultBlock.put("tool_use_id", msg.getToolUseId());
@@ -69,10 +80,12 @@ public class AnthropicProvider implements LlmProvider {
                 } else {
                     messageNode.put("content", msg.getContent());
                 }
+                lastToolResultContentArray = null;
             } else {
                 ObjectNode messageNode = messagesArray.addObject();
                 messageNode.put("role", msg.getRole());
                 messageNode.put("content", msg.getContent());
+                lastToolResultContentArray = null;
             }
         }
 

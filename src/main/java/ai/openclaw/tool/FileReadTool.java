@@ -59,10 +59,12 @@ public class FileReadTool implements Tool {
                 // List directory contents instead
                 StringBuilder sb = new StringBuilder();
                 sb.append("Directory listing for: ").append(filePath).append("\n");
-                Files.list(path).sorted().forEach(p -> {
-                    String type = Files.isDirectory(p) ? "[DIR]  " : "[FILE] ";
-                    sb.append(type).append(p.getFileName()).append("\n");
-                });
+                try (var entries = Files.list(path)) {
+                    entries.sorted().forEach(p -> {
+                        String type = Files.isDirectory(p) ? "[DIR]  " : "[FILE] ";
+                        sb.append(type).append(p.getFileName()).append("\n");
+                    });
+                }
                 String result = sb.toString();
                 if (result.length() > MAX_OUTPUT_CHARS) {
                     result = result.substring(0, MAX_OUTPUT_CHARS) + "\n[OUTPUT TRUNCATED]";

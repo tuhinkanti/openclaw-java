@@ -59,7 +59,7 @@ public class AgentExecutor {
         // 3. Run the agentic loop
         String responseText;
         try {
-            responseText = runAgentLoop(session);
+            responseText = runAgentLoop(sessionId, session);
         } catch (Exception e) {
             logger.error("Agent loop failed", e);
             responseText = "Error: " + e.getMessage();
@@ -72,7 +72,7 @@ public class AgentExecutor {
         return responseText;
     }
 
-    private String runAgentLoop(Session session) throws Exception {
+    private String runAgentLoop(String sessionId, Session session) throws Exception {
         String model = config.getAgent().getModel();
 
         for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
@@ -102,7 +102,7 @@ public class AgentExecutor {
             // so it can be replayed in the next API call
             ArrayNode contentBlocksJson = serializeContentBlocks(response.getContent());
             Message assistantToolMsg = Message.assistantToolUse(contentBlocksJson);
-            session.addMessage(assistantToolMsg);
+            sessionStore.appendMessage(sessionId, assistantToolMsg);
 
             // Execute each requested tool and add results to session
             for (LlmResponse.ContentBlock block : response.getToolUseBlocks()) {
@@ -120,7 +120,7 @@ public class AgentExecutor {
                         block.getToolUseId(),
                         result.getOutput(),
                         result.isError());
-                session.addMessage(toolResultMsg);
+                sessionStore.appendMessage(sessionId, toolResultMsg);
             }
 
             // Loop back — the next iteration will include the tool results in context
