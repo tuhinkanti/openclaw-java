@@ -29,7 +29,7 @@ public class CodeExecutionTool implements Tool {
      * Commands that are always blocked — too dangerous even with user confirmation.
      */
     private static final List<Pattern> DEFAULT_BLOCKED_PATTERNS = List.of(
-            Pattern.compile("\\brm\\s+(-[^\\s]*)?-r[^\\s]*\\s+[/~]", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("\\brm\\s+-[^\\s]*r[^\\s]*\\s+[/~]", Pattern.CASE_INSENSITIVE),
             Pattern.compile("\\bmkfs\\b"),
             Pattern.compile("\\bdd\\s+.*of\\s*=\\s*/dev/"),
             Pattern.compile("\\bchmod\\s+777\\s+/"),
@@ -39,7 +39,7 @@ public class CodeExecutionTool implements Tool {
             Pattern.compile("\\bwget\\s+.*\\|\\s*sh"),
             Pattern.compile("\\b(shutdown|reboot|halt|poweroff)\\b"),
             Pattern.compile("\\bkill\\s+-9\\s+1\\b"),
-            Pattern.compile("\\brm\\s+(-[^\\s]*)?-r[^\\s]*\\s+\\*"));
+            Pattern.compile("\\brm\\s+-[^\\s]*r[^\\s]*\\s+\\*"));
 
     /** Commands that are allowed but logged at WARN level. */
     private static final List<Pattern> DEFAULT_WARNED_PATTERNS = List.of(

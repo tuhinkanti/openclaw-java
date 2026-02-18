@@ -73,6 +73,10 @@ public class CodeExecutionToolTest {
         assertNotNull(tool.checkBlocked("rm -rf /"));
         assertNotNull(tool.checkBlocked("rm -rf /home"));
         assertNotNull(tool.checkBlocked("rm -rf ~/"));
+        // Flag reordering must also be caught
+        assertNotNull(tool.checkBlocked("rm -fr /"));
+        assertNotNull(tool.checkBlocked("rm -fir /"));
+        assertNotNull(tool.checkBlocked("rm -fr *"));
     }
 
     @Test
