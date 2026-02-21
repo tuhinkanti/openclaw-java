@@ -69,7 +69,6 @@ public class GatewayServer extends WebSocketServer {
             }
             return token;
         }
-        }
         return null;
     }
 
