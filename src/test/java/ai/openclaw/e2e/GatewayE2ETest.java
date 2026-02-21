@@ -108,6 +108,10 @@ public class GatewayE2ETest {
             }
         };
 
+        final String authToken = "test-token"; // Use the known token directly or capture from config
+        if (authToken != null) {
+            client.addHeader("Authorization", "Bearer " + authToken);
+        }
         assertTrue(client.connectBlocking(5, TimeUnit.SECONDS));
 
         // Send request

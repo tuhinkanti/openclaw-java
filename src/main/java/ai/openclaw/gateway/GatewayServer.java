@@ -11,35 +11,90 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class GatewayServer extends WebSocketServer {
     private static final Logger logger = LoggerFactory.getLogger(GatewayServer.class);
     private final OpenClawConfig config;
     private final ObjectMapper mapper = Json.mapper();
-    private final Map<String, WebSocket> clients = new ConcurrentHashMap<>();
+    private final Set<WebSocket> authenticatedClients = java.util.Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final RpcRouter router;
 
     public GatewayServer(OpenClawConfig config, RpcRouter router) {
-        super(new InetSocketAddress("127.0.0.1", config.getGateway().getPort()));
+        super(new InetSocketAddress("0.0.0.0", config.getGateway().getPort()));
         this.config = config;
         this.router = router;
     }
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        logger.info("New connection from {}", conn.getRemoteSocketAddress());
-        // Simple auth check could be added here
+        String remoteAddress = conn.getRemoteSocketAddress().toString();
+        logger.info("New connection from {}", remoteAddress);
+
+        String expectedToken = config.getGateway() != null ? config.getGateway().getAuthToken() : null;
+        if (expectedToken == null || expectedToken.isEmpty()) {
+            logger.warn("No auth token configured! Accepting connection from {}", remoteAddress);
+            authenticatedClients.add(conn);
+            return;
+        }
+
+        String providedToken = extractToken(handshake);
+        if (providedToken == null || !constantTimeEquals(expectedToken, providedToken)) {
+            logger.warn("Unauthorized connection attempt from {}", remoteAddress);
+            // Close with policy violation code (1008) or normal code (1000) with reason
+            conn.close(1008, "Unauthorized");
+            return;
+        }
+
+        logger.info("Authenticated connection from {}", remoteAddress);
+        authenticatedClients.add(conn);
+    }
+
+    private String extractToken(ClientHandshake handshake) {
+        // 1. Check Authorization header
+        String authHeader = handshake.getFieldValue("Authorization");
+        if (authHeader != null && authHeader.toLowerCase().startsWith("bearer ")) {
+            return authHeader.substring(7).trim();
+        }
+
+        // 2. Check query parameter
+        String descriptor = handshake.getResourceDescriptor();
+        int index = descriptor.indexOf("?token=");
+        if (index == -1) index = descriptor.indexOf("&token=");
+        
+        if (index != -1) {
+            String token = descriptor.substring(index + 7);
+            int end = token.indexOf('&');
+            if (end != -1) {
+                token = token.substring(0, end);
+            }
+            return token;
+        }
+        return null;
+    }
+
+    /** Constant-time string comparison to prevent timing attacks. */
+    private boolean constantTimeEquals(String a, String b) {
+        return java.security.MessageDigest.isEqual(
+                a.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                b.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-        logger.info("Closed connection: {}", conn.getRemoteSocketAddress());
+        String remoteAddress = conn.getRemoteSocketAddress().toString();
+        logger.info("Closed connection: {}", remoteAddress);
+        authenticatedClients.remove(conn);
     }
 
     @Override
     public void onMessage(WebSocket conn, String message) {
+        if (!authenticatedClients.contains(conn)) {
+            logger.warn("Message from unauthenticated connection, ignoring");
+            return;
+        }
+
         try {
             RpcProtocol.RpcMessage request = mapper.readValue(message, RpcProtocol.RpcMessage.class);
 
