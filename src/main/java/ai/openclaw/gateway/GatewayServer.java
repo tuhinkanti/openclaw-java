@@ -11,18 +11,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class GatewayServer extends WebSocketServer {
     private static final Logger logger = LoggerFactory.getLogger(GatewayServer.class);
     private final OpenClawConfig config;
     private final ObjectMapper mapper = Json.mapper();
-    private final Map<String, WebSocket> clients = new ConcurrentHashMap<>();
+    private final Set<WebSocket> authenticatedClients = java.util.Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final RpcRouter router;
 
     public GatewayServer(OpenClawConfig config, RpcRouter router) {
-        super(new InetSocketAddress("127.0.0.1", config.getGateway().getPort()));
+        super(new InetSocketAddress("0.0.0.0", config.getGateway().getPort()));
         this.config = config;
         this.router = router;
     }
@@ -32,10 +32,10 @@ public class GatewayServer extends WebSocketServer {
         String remoteAddress = conn.getRemoteSocketAddress().toString();
         logger.info("New connection from {}", remoteAddress);
 
-        String expectedToken = config.getGateway().getAuthToken();
+        String expectedToken = config.getGateway() != null ? config.getGateway().getAuthToken() : null;
         if (expectedToken == null || expectedToken.isEmpty()) {
             logger.warn("No auth token configured! Accepting connection from {}", remoteAddress);
-            clients.put(remoteAddress, conn);
+            authenticatedClients.add(conn);
             return;
         }
 
@@ -48,7 +48,7 @@ public class GatewayServer extends WebSocketServer {
         }
 
         logger.info("Authenticated connection from {}", remoteAddress);
-        clients.put(remoteAddress, conn);
+        authenticatedClients.add(conn);
     }
 
     private String extractToken(ClientHandshake handshake) {
@@ -60,9 +60,11 @@ public class GatewayServer extends WebSocketServer {
 
         // 2. Check query parameter
         String descriptor = handshake.getResourceDescriptor();
-        if (descriptor.contains("?token=") || descriptor.contains("&token=")) {
-            int index = descriptor.indexOf("token=");
-            String token = descriptor.substring(index + 6);
+        int index = descriptor.indexOf("?token=");
+        if (index == -1) index = descriptor.indexOf("&token=");
+        
+        if (index != -1) {
+            String token = descriptor.substring(index + 7);
             int end = token.indexOf('&');
             if (end != -1) {
                 token = token.substring(0, end);
@@ -83,12 +85,12 @@ public class GatewayServer extends WebSocketServer {
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
         String remoteAddress = conn.getRemoteSocketAddress().toString();
         logger.info("Closed connection: {}", remoteAddress);
-        clients.remove(remoteAddress);
+        authenticatedClients.remove(conn);
     }
 
     @Override
     public void onMessage(WebSocket conn, String message) {
-        if (!clients.containsValue(conn)) {
+        if (!authenticatedClients.contains(conn)) {
             logger.warn("Message from unauthenticated connection, ignoring");
             return;
         }

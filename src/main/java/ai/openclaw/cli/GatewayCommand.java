@@ -26,7 +26,7 @@ public class GatewayCommand implements Runnable {
     public void run() {
         try {
             // 1. Load Config
-            System.out.println("Reading config from ~/.openclaw-java/config.json");
+            System.out.println("Reading config from ~/.openclaw-java/config.json or Environment Variables");
             OpenClawConfig config = ConfigLoader.load();
 
             // 2. Initialize Components
