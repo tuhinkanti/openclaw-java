@@ -35,6 +35,7 @@ public class GatewayServer extends WebSocketServer {
         String expectedToken = config.getGateway().getAuthToken();
         if (expectedToken == null || expectedToken.isEmpty()) {
             logger.warn("No auth token configured! Accepting connection from {}", remoteAddress);
+            clients.put(remoteAddress, conn);
             return;
         }
 
@@ -47,6 +48,7 @@ public class GatewayServer extends WebSocketServer {
         }
 
         logger.info("Authenticated connection from {}", remoteAddress);
+        clients.put(remoteAddress, conn);
     }
 
     private String extractToken(ClientHandshake handshake) {
@@ -86,11 +88,18 @@ public class GatewayServer extends WebSocketServer {
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-        logger.info("Closed connection: {}", conn.getRemoteSocketAddress());
+        String remoteAddress = conn.getRemoteSocketAddress().toString();
+        logger.info("Closed connection: {}", remoteAddress);
+        clients.remove(remoteAddress);
     }
 
     @Override
     public void onMessage(WebSocket conn, String message) {
+        if (!clients.containsValue(conn)) {
+            logger.warn("Message from unauthenticated connection, ignoring");
+            return;
+        }
+
         try {
             RpcProtocol.RpcMessage request = mapper.readValue(message, RpcProtocol.RpcMessage.class);
 
