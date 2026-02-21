@@ -75,15 +75,8 @@ public class GatewayServer extends WebSocketServer {
     /** Constant-time string comparison to prevent timing attacks. */
     private boolean constantTimeEquals(String a, String b) {
         return java.security.MessageDigest.isEqual(
-            a.getBytes(java.nio.charset.StandardCharsets.UTF_8),
-            b.getBytes(java.nio.charset.StandardCharsets.UTF_8)
-        );
-        }
-        int result = 0;
-        for (int i = 0; i < a.length(); i++) {
-            result |= a.charAt(i) ^ b.charAt(i);
-        }
-        return result == 0;
+                a.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                b.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     @Override
