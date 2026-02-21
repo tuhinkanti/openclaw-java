@@ -60,7 +60,7 @@ public class GatewayServer extends WebSocketServer {
 
         // 2. Check query parameter
         String descriptor = handshake.getResourceDescriptor();
-        if (descriptor.contains("token=")) {
+        if (descriptor.contains("?token=") || descriptor.contains("&token=")) {
             int index = descriptor.indexOf("token=");
             String token = descriptor.substring(index + 6);
             int end = token.indexOf('&');
@@ -68,6 +68,7 @@ public class GatewayServer extends WebSocketServer {
                 token = token.substring(0, end);
             }
             return token;
+        }
         }
         return null;
     }
