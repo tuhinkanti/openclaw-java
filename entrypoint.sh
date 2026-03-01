@@ -10,6 +10,12 @@ if [ -d /certs ] && ls /certs/*.crt 2>/dev/null 1>/dev/null; then
       '/-----BEGIN CERTIFICATE-----/' '{*}' 2>/dev/null 1>/dev/null || true
     for pem in /tmp/cert-*.pem; do
       [ -f "$pem" ] || continue
+    rm -f /tmp/cert-*.pem
+    csplit -z -f /tmp/cert- -b '%03d.pem' "$bundle" \
+      '/-----BEGIN CERTIFICATE-----/' '{*}' 2>/dev/null 1>/dev/null || true
+    i=0
+    for pem in /tmp/cert-*.pem; do
+      [ -f "$pem" ] || continue
       alias="imported-$(basename "$bundle" .crt)-$i"
       keytool -importcert -noprompt \
         -keystore "$CACERTS" \
@@ -18,6 +24,7 @@ if [ -d /certs ] && ls /certs/*.crt 2>/dev/null 1>/dev/null; then
         -file "$pem" 2>/dev/null || true
       rm -f "$pem"
       i=$((i+1))
+    done
     done
   done
 fi
