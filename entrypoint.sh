@@ -22,4 +22,4 @@ if [ -d /certs ] && ls /certs/*.crt 2>/dev/null 1>/dev/null; then
   done
 fi
 
-exec java -Duser.home=/home/openclaw -jar /app/openclaw.jar "$@"
+exec su-exec openclaw java -Duser.home=/home/openclaw -jar /app/openclaw.jar "$@"
