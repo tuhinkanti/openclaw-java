@@ -17,10 +17,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public class AgentExecutor {
     private static final Logger logger = LoggerFactory.getLogger(AgentExecutor.class);
-    private static final int MAX_TOOL_ITERATIONS = 10;
+    private static final int CONTEXT_TOKEN_BUDGET = 180_000;
+    private static final int CHARS_PER_TOKEN = 4;
 
     private final OpenClawConfig config;
     private final SessionStore sessionStore;
@@ -46,17 +51,14 @@ public class AgentExecutor {
     }
 
     public String execute(String sessionId, String userMessage) {
-        // 1. Get Session
         Session session = sessionStore.getSession(sessionId);
         if (session == null) {
             throw new IllegalArgumentException("Session not found: " + sessionId);
         }
 
-        // 2. Append User Message
         Message userMsg = new Message("user", userMessage);
         sessionStore.appendMessage(sessionId, userMsg);
 
-        // 3. Run the agentic loop
         String responseText;
         try {
             responseText = runAgentLoop(sessionId, session);
@@ -65,23 +67,42 @@ public class AgentExecutor {
             responseText = "Error: " + e.getMessage();
         }
 
-        // 4. Append final Assistant Message
         Message assistantMsg = new Message("assistant", responseText);
         sessionStore.appendMessage(sessionId, assistantMsg);
 
         return responseText;
     }
 
+    public String executeRalph(String sessionId, String taskPrompt) {
+        String completionPromise = config.getAgent().getRalphCompletionPromise();
+        int maxOuter = config.getAgent().getRalphMaxIterations();
+
+        String response = execute(sessionId, taskPrompt);
+
+        for (int i = 1; i < maxOuter; i++) {
+            if (response.contains(completionPromise)) {
+                logger.info("Ralph loop completed at iteration {} — completion promise found", i);
+                return response;
+            }
+
+            logger.info("Ralph loop iteration {} — no completion promise, continuing", i + 1);
+            String continuePrompt = "Continue working on the task. Review what you've done so far, "
+                    + "check for errors or incomplete work, and keep going. "
+                    + "Output '" + completionPromise + "' when the task is fully complete.";
+            response = execute(sessionId, continuePrompt);
+        }
+
+        logger.warn("Ralph loop hit max iterations ({})", maxOuter);
+        return response;
+    }
+
     private String runAgentLoop(String sessionId, Session session) throws Exception {
         String model = config.getAgent().getModel();
+        int maxIterations = config.getAgent().getMaxIterations();
 
-        for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-            // Build context from session history
-            List<Message> context = new ArrayList<>();
-            context.add(new Message("system", promptBuilder.build()));
-            context.addAll(session.getMessages());
+        for (int iteration = 0; iteration < maxIterations; iteration++) {
+            List<Message> context = buildContext(session);
 
-            // Call LLM with tools
             LlmResponse response;
             if (!tools.isEmpty()) {
                 response = llmProvider.completeWithTools(context, model, tools);
@@ -91,46 +112,114 @@ public class AgentExecutor {
             }
 
             if (!response.hasToolUse()) {
-                // No tool use — return the text content
                 return response.getTextContent();
             }
 
-            // The LLM wants to use tools
             logger.info("Tool use requested (iteration {})", iteration + 1);
 
-            // Store the assistant's response (with tool_use blocks) in the session
-            // so it can be replayed in the next API call
             ArrayNode contentBlocksJson = serializeContentBlocks(response.getContent());
             Message assistantToolMsg = Message.assistantToolUse(contentBlocksJson);
             sessionStore.appendMessage(sessionId, assistantToolMsg);
 
-            // Execute each requested tool and add results to session
-            for (LlmResponse.ContentBlock block : response.getToolUseBlocks()) {
-                Tool tool = toolMap.get(block.getToolName());
-                ToolResult result;
-                if (tool != null) {
-                    logger.info("Executing tool: {} (id: {})", block.getToolName(), block.getToolUseId());
-                    result = tool.execute(block.getToolInput());
-                } else {
-                    logger.warn("Unknown tool requested: {}", block.getToolName());
-                    result = ToolResult.error("Unknown tool: " + block.getToolName());
-                }
+            List<LlmResponse.ContentBlock> toolBlocks = response.getToolUseBlocks();
+            List<ToolResult> results;
 
+            if (toolBlocks.size() == 1) {
+                results = List.of(executeTool(toolBlocks.get(0)));
+            } else {
+                results = executeToolsInParallel(toolBlocks);
+            }
+
+            for (int i = 0; i < toolBlocks.size(); i++) {
+                LlmResponse.ContentBlock block = toolBlocks.get(i);
+                ToolResult result = results.get(i);
                 Message toolResultMsg = Message.toolResult(
                         block.getToolUseId(),
                         result.getOutput(),
                         result.isError());
                 sessionStore.appendMessage(sessionId, toolResultMsg);
             }
-
-            // Loop back — the next iteration will include the tool results in context
         }
 
-        logger.warn("Agent loop hit max iterations ({})", MAX_TOOL_ITERATIONS);
+        logger.warn("Agent loop hit max iterations ({})", maxIterations);
         return "I've reached the maximum number of tool use steps. Here's what I have so far — please try rephrasing your request if you need more.";
     }
 
-    /** Serialize content blocks back to the JSON format Anthropic expects. */
+    private List<Message> buildContext(Session session) {
+        Message systemMsg = new Message("system", promptBuilder.build());
+        List<Message> sessionMessages = session.getMessages();
+
+        int systemTokens = estimateTokens(systemMsg.getContent());
+        int budget = CONTEXT_TOKEN_BUDGET - systemTokens;
+
+        List<Message> truncated = new ArrayList<>();
+        int totalTokens = 0;
+
+        for (int i = sessionMessages.size() - 1; i >= 0; i--) {
+            Message msg = sessionMessages.get(i);
+            int msgTokens = estimateTokens(msg.getContent());
+            if (totalTokens + msgTokens > budget) {
+                break;
+            }
+            truncated.add(0, msg);
+            totalTokens += msgTokens;
+        }
+
+        if (truncated.size() < sessionMessages.size()) {
+            int dropped = sessionMessages.size() - truncated.size();
+            logger.info("Context truncation: dropped {} oldest messages to fit token budget", dropped);
+            Message notice = new Message("user",
+                    "[System: " + dropped + " earlier messages were truncated to fit context window]");
+            truncated.add(0, notice);
+        }
+
+        List<Message> context = new ArrayList<>();
+        context.add(systemMsg);
+        context.addAll(truncated);
+        return context;
+    }
+
+    private int estimateTokens(String text) {
+        if (text == null) return 0;
+        return text.length() / CHARS_PER_TOKEN;
+    }
+
+    private ToolResult executeTool(LlmResponse.ContentBlock block) {
+        Tool tool = toolMap.get(block.getToolName());
+        if (tool == null) {
+            logger.warn("Unknown tool requested: {}", block.getToolName());
+            return ToolResult.error("Unknown tool: " + block.getToolName());
+        }
+        try {
+            logger.info("Executing tool: {} (id: {})", block.getToolName(), block.getToolUseId());
+            return tool.execute(block.getToolInput());
+        } catch (Exception e) {
+            logger.error("Tool execution failed: {} — {}", block.getToolName(), e.getMessage(), e);
+            return ToolResult.error("Tool execution failed: " + e.getMessage());
+        }
+    }
+
+    private List<ToolResult> executeToolsInParallel(List<LlmResponse.ContentBlock> toolBlocks) {
+        logger.info("Executing {} tools in parallel", toolBlocks.size());
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<ToolResult>> futures = new ArrayList<>();
+            for (LlmResponse.ContentBlock block : toolBlocks) {
+                futures.add(executor.submit(() -> executeTool(block)));
+            }
+
+            List<ToolResult> results = new ArrayList<>();
+            for (Future<ToolResult> future : futures) {
+                try {
+                    results.add(future.get(60, TimeUnit.SECONDS));
+                } catch (Exception e) {
+                    logger.error("Parallel tool execution failed: {}", e.getMessage(), e);
+                    results.add(ToolResult.error("Tool execution timed out or failed: " + e.getMessage()));
+                }
+            }
+            return results;
+        }
+    }
+
     private ArrayNode serializeContentBlocks(List<LlmResponse.ContentBlock> blocks) {
         ArrayNode array = Json.mapper().createArrayNode();
         for (LlmResponse.ContentBlock block : blocks) {
