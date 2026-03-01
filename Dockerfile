@@ -1,17 +1,17 @@
-FROM gradle:8-jdk21 AS build
+FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
-COPY build.gradle.kts settings.gradle.kts ./
+COPY gradlew .
 COPY gradle ./gradle
-# Download dependencies first (cached layer)
-RUN gradle dependencies --no-daemon || true
+COPY build.gradle.kts settings.gradle.kts gradle.properties ./
+RUN ./gradlew dependencies --no-daemon || true
 COPY src ./src
-RUN gradle jar --no-daemon
+RUN ./gradlew jar --no-daemon
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Install bash for CodeExecutionTool
-RUN apk add --no-cache bash curl
+RUN apk add --no-cache bash curl github-cli
 
 # Create a non-root user with a dedicated workspace for tool execution
 RUN addgroup -S openclaw && adduser -S openclaw -G openclaw \
@@ -19,14 +19,14 @@ RUN addgroup -S openclaw && adduser -S openclaw -G openclaw \
     && chown -R openclaw:openclaw /home/openclaw
 
 COPY --from=build /app/build/libs/*.jar /app/openclaw.jar
+COPY entrypoint.sh /app/entrypoint.sh
 
 # Default gateway port
 ENV GATEWAY_PORT=18789
 EXPOSE ${GATEWAY_PORT}
 
-# Run as non-root user
-USER openclaw
+# Run as non-root user (entrypoint needs root briefly to import certs, then drops)
 ENV HOME=/home/openclaw
 
-ENTRYPOINT ["java", "-jar", "/app/openclaw.jar"]
+ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]
 CMD ["gateway"]
