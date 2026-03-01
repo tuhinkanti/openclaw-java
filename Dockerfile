@@ -11,7 +11,7 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Install bash for CodeExecutionTool
-RUN apk add --no-cache bash curl github-cli
+RUN apk add --no-cache bash curl github-cli su-exec
 
 # Create a non-root user with a dedicated workspace for tool execution
 RUN addgroup -S openclaw && adduser -S openclaw -G openclaw \
