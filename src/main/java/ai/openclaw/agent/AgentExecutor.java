@@ -157,12 +157,21 @@ public class AgentExecutor {
 
         for (int i = sessionMessages.size() - 1; i >= 0; i--) {
             Message msg = sessionMessages.get(i);
-            int msgTokens = estimateTokens(msg.getContent());
+            int msgTokens = estimateMessageTokens(msg);
             if (totalTokens + msgTokens > budget) {
                 break;
             }
             truncated.add(0, msg);
             totalTokens += msgTokens;
+        }
+
+        if (!truncated.isEmpty()) {
+            String firstRole = truncated.get(0).getRole();
+            if ("assistant_tool_use".equals(firstRole) || "tool_result".equals(firstRole)) {
+                while (!truncated.isEmpty() && !"user".equals(truncated.get(0).getRole())) {
+                    truncated.remove(0);
+                }
+            }
         }
 
         if (truncated.size() < sessionMessages.size()) {
@@ -179,8 +188,17 @@ public class AgentExecutor {
         return context;
     }
 
+    private int estimateMessageTokens(Message msg) {
+        int tokens = estimateTokens(msg.getContent());
+        if (msg.getContentBlocks() != null) {
+            tokens += estimateTokens(msg.getContentBlocks().toString());
+        }
+        return tokens;
+    }
+
     private int estimateTokens(String text) {
-        if (text == null) return 0;
+        if (text == null)
+            return 0;
         return text.length() / CHARS_PER_TOKEN;
     }
 
