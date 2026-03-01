@@ -6,10 +6,7 @@ set -e
 CACERTS="${JAVA_HOME}/lib/security/cacerts"
 if [ -d /certs ] && ls /certs/*.crt 2>/dev/null 1>/dev/null; then
   for bundle in /certs/*.crt; do
-    csplit -z -f /tmp/cert- -b '%03d.pem' "$bundle" \
-      '/-----BEGIN CERTIFICATE-----/' '{*}' 2>/dev/null 1>/dev/null || true
-    for pem in /tmp/cert-*.pem; do
-      [ -f "$pem" ] || continue
+
     rm -f /tmp/cert-*.pem
     csplit -z -f /tmp/cert- -b '%03d.pem' "$bundle" \
       '/-----BEGIN CERTIFICATE-----/' '{*}' 2>/dev/null 1>/dev/null || true
