@@ -5,6 +5,8 @@
         </encoder>
     </appender>
 
+    <logger name="ai.openclaw.agent.AnthropicProvider" level="DEBUG" />
+
     <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>

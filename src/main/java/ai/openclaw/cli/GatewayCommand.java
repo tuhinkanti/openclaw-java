@@ -1,8 +1,10 @@
 package ai.openclaw.cli;
 
 import ai.openclaw.agent.AgentExecutor;
-import ai.openclaw.agent.AnthropicProvider;
+import ai.openclaw.agent.LlmProvider;
+import ai.openclaw.agent.LlmProviderFactory;
 import ai.openclaw.channel.console.ConsoleChannel;
+import ai.openclaw.channel.slack.SlackChannel;
 import ai.openclaw.config.ConfigLoader;
 import ai.openclaw.config.Json;
 import ai.openclaw.config.OpenClawConfig;
@@ -12,6 +14,7 @@ import ai.openclaw.session.SessionStore;
 import ai.openclaw.tool.CodeExecutionTool;
 import ai.openclaw.tool.FileReadTool;
 import ai.openclaw.tool.FileWriteTool;
+import ai.openclaw.tool.SlackPostTool;
 import ai.openclaw.tool.Tool;
 import ai.openclaw.tool.WebSearchTool;
 import picocli.CommandLine.Command;
@@ -31,28 +34,44 @@ public class GatewayCommand implements Runnable {
 
             // 2. Initialize Components
             SessionStore sessionStore = new SessionStore();
-            AnthropicProvider llmProvider = new AnthropicProvider(config.getAgent().getApiKey());
+            LlmProvider llmProvider = LlmProviderFactory.create(config.getAgent());
 
             // Register tools
-            List<Tool> tools = List.of(
-                    new CodeExecutionTool(),
-                    new FileReadTool(),
-                    new FileWriteTool(),
-                    new WebSearchTool());
+            List<Tool> tools;
+            if (config.getSlack() != null
+                    && config.getSlack().getBotToken() != null
+                    && !config.getSlack().getBotToken().isEmpty()) {
+                tools = List.of(
+                        new CodeExecutionTool(),
+                        new FileReadTool(),
+                        new FileWriteTool(),
+                        new WebSearchTool(),
+                        new SlackPostTool(config.getSlack().getBotToken()));
+            } else {
+                tools = List.of(
+                        new CodeExecutionTool(),
+                        new FileReadTool(),
+                        new FileWriteTool(),
+                        new WebSearchTool());
+            }
 
             AgentExecutor agentExecutor = new AgentExecutor(config, sessionStore, llmProvider, tools);
 
             // 3. Setup RPC Router
             RpcRouter router = new RpcRouter();
             router.register("gateway.health", params -> {
-                // simple health check
                 return Json.mapper().createObjectNode().put("status", "ok");
             });
             router.register("agent.send", params -> {
-                // handle remote send
                 String sessionId = params.get("sessionId").asText();
                 String message = params.get("message").asText();
                 String response = agentExecutor.execute(sessionId, message);
+                return Json.mapper().createObjectNode().put("response", response);
+            });
+            router.register("agent.ralph", params -> {
+                String sessionId = params.get("sessionId").asText();
+                String message = params.get("message").asText();
+                String response = agentExecutor.executeRalph(sessionId, message);
                 return Json.mapper().createObjectNode().put("response", response);
             });
 
@@ -62,8 +81,16 @@ public class GatewayCommand implements Runnable {
             System.out.println("Gateway listening on port " + config.getGateway().getPort());
 
             // 5. Start Console Channel
-            ConsoleChannel console = new ConsoleChannel(agentExecutor, sessionStore);
+            ConsoleChannel console = new ConsoleChannel(agentExecutor, sessionStore, config);
             console.start();
+
+            // 6. Start Slack Channel (if configured)
+            if (config.getSlack() != null
+                    && config.getSlack().getBotToken() != null && !config.getSlack().getBotToken().isEmpty()
+                    && config.getSlack().getAppToken() != null && !config.getSlack().getAppToken().isEmpty()) {
+                SlackChannel slackChannel = new SlackChannel(agentExecutor, sessionStore, config);
+                slackChannel.start();
+            }
 
             // Keep alive
             new CountDownLatch(1).await();

@@ -2,6 +2,7 @@ package ai.openclaw.channel.console;
 
 import ai.openclaw.channel.Channel;
 import ai.openclaw.agent.AgentExecutor;
+import ai.openclaw.config.OpenClawConfig;
 import ai.openclaw.session.Session;
 import ai.openclaw.session.SessionStore;
 import org.slf4j.Logger;
@@ -13,12 +14,14 @@ public class ConsoleChannel implements Channel {
     private static final Logger logger = LoggerFactory.getLogger(ConsoleChannel.class);
     private final AgentExecutor agentExecutor;
     private final SessionStore sessionStore;
+    private final boolean ralphMode;
     private boolean running = false;
     private Session defaultSession;
 
-    public ConsoleChannel(AgentExecutor agentExecutor, SessionStore sessionStore) {
+    public ConsoleChannel(AgentExecutor agentExecutor, SessionStore sessionStore, OpenClawConfig config) {
         this.agentExecutor = agentExecutor;
         this.sessionStore = sessionStore;
+        this.ralphMode = config.getAgent().isRalphMode();
         this.defaultSession = sessionStore.createSession("console", "local-user");
     }
 
@@ -29,7 +32,6 @@ public class ConsoleChannel implements Channel {
 
     @Override
     public void start() {
-        // Run in separate thread
         Thread t = new Thread(this, "console-channel");
         t.setDaemon(true);
         t.start();
@@ -50,7 +52,10 @@ public class ConsoleChannel implements Channel {
         running = true;
         Scanner scanner = new Scanner(System.in);
         System.out.println("🦞 OpenClaw Java MVP - Console Channel");
-        System.out.println("Type 'exit' to quit.");
+        if (ralphMode) {
+            System.out.println("Ralph mode enabled — agent will self-correct until task completion.");
+        }
+        System.out.println("Type 'exit' to quit. Prefix with /ralph to use Ralph mode ad-hoc.");
         System.out.println("Session ID: " + defaultSession.getId());
         System.out.println("----------------------------------------");
 
@@ -65,7 +70,13 @@ public class ConsoleChannel implements Channel {
 
             if (!input.isEmpty()) {
                 try {
-                    String response = agentExecutor.execute(defaultSession.getId(), input);
+                    String response;
+                    if (ralphMode || input.startsWith("/ralph ")) {
+                        String prompt = input.startsWith("/ralph ") ? input.substring(7).trim() : input;
+                        response = agentExecutor.executeRalph(defaultSession.getId(), prompt);
+                    } else {
+                        response = agentExecutor.execute(defaultSession.getId(), input);
+                    }
                     sendMessage(defaultSession.getId(), response);
                 } catch (Exception e) {
                     logger.error("Error executing agent", e);
