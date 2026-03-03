@@ -92,6 +92,10 @@ public class AgentExecutor {
             response = execute(sessionId, continuePrompt);
         }
 
+        if (response.contains(completionPromise)) {
+            logger.info("Ralph loop completed at final iteration — completion promise found");
+            return response;
+        }
         logger.warn("Ralph loop hit max iterations ({})", maxOuter);
         return response;
     }
