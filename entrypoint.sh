@@ -23,7 +23,7 @@ if [ -d /certs ] && ls /certs/*.crt 2>/dev/null 1>/dev/null; then
       i=$((i+1))
     done
     done
-  done
+  fi
 fi
 
 exec su-exec openclaw java -Duser.home=/home/openclaw -jar /app/openclaw.jar "$@"
