@@ -27,7 +27,17 @@ This project implements a minimal viable version of OpenClaw in Java, focusing o
    ```json
    {
      "gateway": { "port": 18789, "authToken": "test-token" },
-     "agent": { "provider": "anthropic", "apiKey": "sk-ant-...", "model": "claude-sonnet-4-20250514" }
+     "agent": { "provider": "anthropic", "apiKey": "sk-ant-...", "model": "claude-sonnet-4-20250514" },
+     "plugins": [
+       {
+         "type": "qmd",
+         "config": {
+           "command": "qmd",
+           "workingDirectory": "/Users/you/github",
+           "timeoutSeconds": 20
+         }
+       }
+     ]
    }
    ```
 
@@ -46,6 +56,28 @@ This project implements a minimal viable version of OpenClaw in Java, focusing o
 - `src/main/java/ai/openclaw/channel` - Console channel implementation
 - `src/main/java/ai/openclaw/config` - Configuration loader
 - `src/main/java/ai/openclaw/session` - Session storage
+
+## Plugins
+
+Plugins are typed integrations that register one or more tools from config.
+
+- `qmd` adds a read-only `qmd_memory` tool backed by the `qmd` CLI.
+- Configure plugins under top-level `plugins`.
+- Drop external plugin jars into `~/.openclaw-java/plugins`; discovery uses Java `ServiceLoader`.
+- If a plugin is explicitly configured and its dependency is missing, gateway startup fails fast with a clear error.
+
+The `qmd_memory` tool supports these operations:
+- `query`
+- `search`
+- `vsearch`
+- `get`
+- `multi_get`
+- `ls`
+- `status`
+- `context_list`
+- `context_check`
+
+For simple command wrappers that do not need a dedicated plugin class, keep using `agent.customTools`.
 
 ## Running with Docker
 
