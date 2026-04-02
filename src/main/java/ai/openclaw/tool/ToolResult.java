@@ -3,17 +3,7 @@ package ai.openclaw.tool;
 /**
  * Result of a tool execution.
  */
-public class ToolResult {
-    private final String output;
-    private final boolean isError;
-    private final int exitCode;
-
-    public ToolResult(String output, boolean isError, int exitCode) {
-        this.output = output;
-        this.isError = isError;
-        this.exitCode = exitCode;
-    }
-
+public record ToolResult(String output, boolean error, int exitCode) {
     public static ToolResult success(String output) {
         return new ToolResult(output, false, 0);
     }
@@ -27,7 +17,7 @@ public class ToolResult {
     }
 
     public boolean isError() {
-        return isError;
+        return error;
     }
 
     public int getExitCode() {
