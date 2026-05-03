@@ -6,14 +6,14 @@ An experimental Java conversion (MVP) of the OpenClaw Personal AI Assistant.
 
 This project implements a minimal viable version of OpenClaw in Java, focusing on:
 - **WebSocket Gateway** (port 18789)
-- **Anthropic-powered Agent Runtime**
+- **OpenAI-powered Agent Runtime** (Anthropic still supported)
 - **Console-based Interaction Channel**
 - **Session Management** with JSONL persistence
 
 ## Prerequisites
 
 - **Java 21+** (virtual threads required)
-- **Anthropic API Key** (`sk-ant-...`)
+- **OpenAI API Key** (`sk-...`) (default) or **Anthropic API Key** (`sk-ant-...`)
 
 ## Getting Started
 
@@ -27,7 +27,7 @@ This project implements a minimal viable version of OpenClaw in Java, focusing o
    ```json
    {
      "gateway": { "port": 18789, "authToken": "test-token" },
-     "agent": { "provider": "anthropic", "apiKey": "sk-ant-...", "model": "claude-sonnet-4-20250514" }
+     "agent": { "provider": "openai", "apiKey": "sk-...", "model": "gpt-4o-mini" }
    }
    ```
 
@@ -57,10 +57,10 @@ You can run the application in a Docker container for an isolated environment.
    ```
 
 2. **Run the container**:
-   You must provide your Anthropic API key as an environment variable.
+   You must provide your API key as an environment variable.
    ```bash
    docker run -it --rm \
-     -e ANTHROPIC_API_KEY=sk-ant-... \
+     -e OPENAI_API_KEY=sk-... \
      -p 18789:18789 \
      openclaw-java
    ```

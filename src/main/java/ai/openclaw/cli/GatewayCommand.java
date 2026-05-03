@@ -2,6 +2,8 @@ package ai.openclaw.cli;
 
 import ai.openclaw.agent.AgentExecutor;
 import ai.openclaw.agent.AnthropicProvider;
+import ai.openclaw.agent.LlmProvider;
+import ai.openclaw.agent.OpenAIProvider;
 import ai.openclaw.channel.console.ConsoleChannel;
 import ai.openclaw.config.ConfigLoader;
 import ai.openclaw.config.Json;
@@ -22,6 +24,14 @@ import java.util.concurrent.CountDownLatch;
 @Command(name = "gateway", description = "Starts the Gateway WebSocket server")
 public class GatewayCommand implements Runnable {
 
+    private LlmProvider createProvider(OpenClawConfig config) {
+        String provider = config.getAgent().getProvider();
+        if ("anthropic".equalsIgnoreCase(provider)) {
+            return new AnthropicProvider(config.getAgent().getApiKey());
+        }
+        return new OpenAIProvider(config.getAgent().getApiKey());
+    }
+
     @Override
     public void run() {
         try {
@@ -31,7 +41,7 @@ public class GatewayCommand implements Runnable {
 
             // 2. Initialize Components
             SessionStore sessionStore = new SessionStore();
-            AnthropicProvider llmProvider = new AnthropicProvider(config.getAgent().getApiKey());
+            LlmProvider llmProvider = createProvider(config);
 
             // Register tools
             List<Tool> tools = List.of(

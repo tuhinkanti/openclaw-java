@@ -15,7 +15,10 @@ public class ConfigLoader {
         if (configFile.exists()) {
             config = Json.mapper().readValue(configFile, OpenClawConfig.class);
         } else {
-            String apiKey = System.getenv("ANTHROPIC_API_KEY");
+            String apiKey = System.getenv("OPENAI_API_KEY");
+            if (apiKey == null || apiKey.isEmpty()) {
+                apiKey = System.getenv("ANTHROPIC_API_KEY");
+            }
             if (apiKey != null && !apiKey.isEmpty()) {
                 config = new OpenClawConfig();
                 config.setGateway(new OpenClawConfig.GatewayConfig());
@@ -23,12 +26,15 @@ public class ConfigLoader {
                 config.getAgent().setApiKey(apiKey);
             } else {
                 throw new IOException(
-                        "Config file not found: " + CONFIG_PATH + " and ANTHROPIC_API_KEY env var is not set.");
+                        "Config file not found: " + CONFIG_PATH + " and OPENAI_API_KEY/ANTHROPIC_API_KEY env vars are not set.");
             }
         }
 
         // Allow environment variables to override config
-        String envKey = System.getenv("ANTHROPIC_API_KEY");
+        String envKey = System.getenv("OPENAI_API_KEY");
+        if (envKey == null || envKey.isEmpty()) {
+            envKey = System.getenv("ANTHROPIC_API_KEY");
+        }
         if (envKey != null && !envKey.isEmpty()) {
             if (config.getAgent() == null)
                 config.setAgent(new OpenClawConfig.AgentConfig());
