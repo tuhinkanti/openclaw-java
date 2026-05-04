@@ -7,6 +7,10 @@ group = "ai.openclaw"
 version = "0.1.0-SNAPSHOT"
 
 repositories {
+    val mirror = System.getenv("MAVEN_MIRROR_URL")
+    if (!mirror.isNullOrBlank()) {
+        maven(url = uri(mirror))
+    }
     mavenCentral()
 }
 

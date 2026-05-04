@@ -29,6 +29,16 @@ If Java 25 is missing, install it:
 - Fedora/RHEL: `sudo dnf install java-25-openjdk-devel`
 - Windows (winget): `winget install EclipseAdoptium.Temurin.25.JDK`
 
+## Dependency Mirror (Codex/Proxy Environments)
+
+If Maven Central is blocked by your environment proxy, set an internal mirror:
+```bash
+export MAVEN_MIRROR_URL=https://your-artifact-mirror.example.com/maven2
+./gradlew build
+```
+
+The build always keeps `mavenCentral()` as fallback; mirror is used first when set.
+
 ## Getting Started
 
 1. **Build the project**:
