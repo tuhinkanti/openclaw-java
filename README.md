@@ -15,6 +15,20 @@ This project implements a minimal viable version of OpenClaw in Java, focusing o
 - **Java 21+** (virtual threads required)
 - **OpenAI API Key** (`sk-...`) (default) or **Anthropic API Key** (`sk-ant-...`)
 
+## Java 21 Preflight
+
+Run this before building:
+```bash
+java -version
+./gradlew -version
+```
+
+If Java 21 is missing, install it:
+- macOS (Homebrew): `brew install openjdk@21`
+- Ubuntu/Debian: `sudo apt install openjdk-21-jdk`
+- Fedora/RHEL: `sudo dnf install java-21-openjdk-devel`
+- Windows (winget): `winget install EclipseAdoptium.Temurin.21.JDK`
+
 ## Getting Started
 
 1. **Build the project**:
