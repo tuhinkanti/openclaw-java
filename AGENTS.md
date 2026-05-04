@@ -9,7 +9,7 @@ Keep this project runnable with the fewest code changes possible.
 - Use `OPENAI_API_KEY` for auth.
 
 ## Quick run
-1. Preflight: `java -version && ./gradlew -version` (must show Java 21)
+1. Preflight: `java -version && ./gradlew -version` (must show Java 25)
 2. Build: `./gradlew build`
 3. Run gateway: `OPENAI_API_KEY=your_key java -jar build/libs/openclaw-java.jar gateway`
 4. (Optional) Send one message from another terminal: `OPENAI_API_KEY=your_key java -jar build/libs/openclaw-java.jar send -m "hello"`
