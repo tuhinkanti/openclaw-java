@@ -7,6 +7,10 @@ import java.nio.file.Paths;
 
 public class ConfigLoader {
     private static final Path CONFIG_PATH = Paths.get(System.getProperty("user.home"), ".openclaw-java", "config.json");
+    private static final String DEFAULT_PROVIDER = "openai";
+    private static final String DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+    private static final String DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
+
 
     public static OpenClawConfig load() throws IOException {
         File configFile = CONFIG_PATH.toFile();
@@ -58,6 +62,30 @@ public class ConfigLoader {
             config.getGateway().setAuthToken(envToken);
         }
 
+        applyAgentDefaults(config);
         return config;
+    }
+
+    private static void applyAgentDefaults(OpenClawConfig config) {
+        if (config.getAgent() == null) {
+            config.setAgent(new OpenClawConfig.AgentConfig());
+        }
+
+        String envProvider = System.getenv("LLM_PROVIDER");
+        if (envProvider != null && !envProvider.isEmpty()) {
+            config.getAgent().setProvider(envProvider.toLowerCase());
+        }
+
+        if (config.getAgent().getProvider() == null || config.getAgent().getProvider().isEmpty()) {
+            config.getAgent().setProvider(DEFAULT_PROVIDER);
+        }
+
+        if (config.getAgent().getModel() == null || config.getAgent().getModel().isEmpty()) {
+            if ("anthropic".equalsIgnoreCase(config.getAgent().getProvider())) {
+                config.getAgent().setModel(DEFAULT_ANTHROPIC_MODEL);
+            } else {
+                config.getAgent().setModel(DEFAULT_OPENAI_MODEL);
+            }
+        }
     }
 }

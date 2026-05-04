@@ -37,13 +37,25 @@ If Java 21 is missing, install it:
    ```
 
 2. **Configure**:
-   Create `~/.openclaw-java/config.json`:
+   Create `~/.openclaw-java/config.json` (either provider):
+   
+   OpenAI (default):
    ```json
    {
      "gateway": { "port": 18789, "authToken": "test-token" },
      "agent": { "provider": "openai", "apiKey": "sk-...", "model": "gpt-4o-mini" }
    }
    ```
+
+   Anthropic:
+   ```json
+   {
+     "gateway": { "port": 18789, "authToken": "test-token" },
+     "agent": { "provider": "anthropic", "apiKey": "sk-ant-...", "model": "claude-sonnet-4-20250514" }
+   }
+   ```
+
+   You can also set `LLM_PROVIDER=openai|anthropic` to override the provider at runtime.
 
 3. **Run Gateway**:
    ```bash
@@ -71,10 +83,19 @@ You can run the application in a Docker container for an isolated environment.
    ```
 
 2. **Run the container**:
-   You must provide your API key as an environment variable.
+   You must provide your API key as an environment variable (either provider).
    ```bash
    docker run -it --rm \
      -e OPENAI_API_KEY=sk-... \
+     -p 18789:18789 \
+     openclaw-java
+   ```
+
+   or Anthropic:
+   ```bash
+   docker run -it --rm \
+     -e ANTHROPIC_API_KEY=sk-ant-... \
+     -e LLM_PROVIDER=anthropic \
      -p 18789:18789 \
      openclaw-java
    ```

@@ -47,9 +47,9 @@ public class OpenClawConfig {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class AgentConfig {
-        private String provider = "openai";
+        private String provider;
         private String apiKey;
-        private String model = "gpt-4o-mini";
+        private String model;
         private String systemPrompt;
 
         public String getProvider() {
