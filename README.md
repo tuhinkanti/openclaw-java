@@ -6,14 +6,38 @@ An experimental Java conversion (MVP) of the OpenClaw Personal AI Assistant.
 
 This project implements a minimal viable version of OpenClaw in Java, focusing on:
 - **WebSocket Gateway** (port 18789)
-- **Anthropic-powered Agent Runtime**
+- **OpenAI-powered Agent Runtime** (Anthropic still supported)
 - **Console-based Interaction Channel**
 - **Session Management** with JSONL persistence
 
 ## Prerequisites
 
 - **Java 21+** (virtual threads required)
-- **Anthropic API Key** (`sk-ant-...`)
+- **OpenAI API Key** (`sk-...`) (default) or **Anthropic API Key** (`sk-ant-...`)
+
+## Java 21 Preflight
+
+Run this before building:
+```bash
+java -version
+./gradlew -version
+```
+
+If Java 21 is missing, install it:
+- macOS (Homebrew): `brew install openjdk@21`
+- Ubuntu/Debian: `sudo apt install openjdk-21-jdk`
+- Fedora/RHEL: `sudo dnf install java-21-openjdk-devel`
+- Windows (winget): `winget install EclipseAdoptium.Temurin.21.JDK`
+
+## Dependency Mirror (Codex/Proxy Environments)
+
+If Maven Central is blocked by your environment proxy, set an internal mirror:
+```bash
+export MAVEN_MIRROR_URL=https://your-artifact-mirror.example.com/maven2
+./gradlew build
+```
+
+The build always keeps `mavenCentral()` as fallback; mirror is used first when set.
 
 ## Getting Started
 
@@ -23,13 +47,25 @@ This project implements a minimal viable version of OpenClaw in Java, focusing o
    ```
 
 2. **Configure**:
-   Create `~/.openclaw-java/config.json`:
+   Create `~/.openclaw-java/config.json` (either provider):
+   
+   OpenAI (default):
+   ```json
+   {
+     "gateway": { "port": 18789, "authToken": "test-token" },
+     "agent": { "provider": "openai", "apiKey": "sk-...", "model": "gpt-4o-mini" }
+   }
+   ```
+
+   Anthropic:
    ```json
    {
      "gateway": { "port": 18789, "authToken": "test-token" },
      "agent": { "provider": "anthropic", "apiKey": "sk-ant-...", "model": "claude-sonnet-4-20250514" }
    }
    ```
+
+   You can also set `LLM_PROVIDER=openai|anthropic` to override the provider at runtime.
 
 3. **Run Gateway**:
    ```bash
@@ -57,10 +93,19 @@ You can run the application in a Docker container for an isolated environment.
    ```
 
 2. **Run the container**:
-   You must provide your Anthropic API key as an environment variable.
+   You must provide your API key as an environment variable (either provider).
+   ```bash
+   docker run -it --rm \
+     -e OPENAI_API_KEY=sk-... \
+     -p 18789:18789 \
+     openclaw-java
+   ```
+
+   or Anthropic:
    ```bash
    docker run -it --rm \
      -e ANTHROPIC_API_KEY=sk-ant-... \
+     -e LLM_PROVIDER=anthropic \
      -p 18789:18789 \
      openclaw-java
    ```

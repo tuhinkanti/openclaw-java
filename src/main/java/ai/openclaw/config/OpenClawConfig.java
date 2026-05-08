@@ -47,9 +47,9 @@ public class OpenClawConfig {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class AgentConfig {
-        private String provider = "anthropic";
+        private String provider;
         private String apiKey;
-        private String model = "claude-sonnet-4-20250514";
+        private String model;
         private String systemPrompt;
 
         public String getProvider() {
